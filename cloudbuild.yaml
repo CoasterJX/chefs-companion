@@ -1,0 +1,65 @@
+steps:
+  # 1. Lint Step
+  - name: 'python:3.10-slim'
+    entrypoint: 'bash'
+    args: ['-c', 'python -m py_compile app.py']
+    id: 'lint_step'
+
+  # 2. Test Step
+  - name: 'python:3.10-slim'
+    entrypoint: 'bash'
+    args: ['-c', 'echo "No tests configured. Passing test step."']
+    id: 'test_step'
+    waitFor: ['lint_step']
+
+  # 3. Build Container
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA', '.']
+    id: 'build_step'
+    waitFor: ['test_step']
+
+  # 4. Push Container
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA']
+    id: 'push_step'
+    waitFor: ['build_step']
+
+  # 5. Deploy to Staging
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: 
+      - 'run'
+      - 'deploy'
+      - 'chefs-companion-staging'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--port'
+      - '8080'
+      - '--allow-unauthenticated'
+    id: 'deploy_staging'
+    waitFor: ['push_step']
+
+  # 6. Deploy to Production
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: 
+      - 'run'
+      - 'deploy'
+      - 'chefs-companion-prod'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--port'
+      - '8080'
+      - '--allow-unauthenticated'
+    id: 'deploy_prod'
+    waitFor: ['deploy_staging']
+
+images:
+  - 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
