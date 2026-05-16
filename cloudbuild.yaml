@@ -4,13 +4,19 @@ steps:
     args: ['build', '-t', 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA', '.']
     id: 'build_step'
 
-  # 2. Deploy to Cloud Run
+  # 2. Push Container to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA']
+    id: 'push_step'
+    waitFor: ['build_step']
+
+  # 3. Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
       - 'run'
       - 'deploy'
-      - 'chefs-companion-svc'  # Single service name
+      - 'chefs-companion-app-dci'  # Single service name
       - '--image'
       - 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA'
       - '--region'
@@ -19,9 +25,9 @@ steps:
       - '8080'
       - '--allow-unauthenticated'
     id: 'deploy_svc'
-    waitFor: ['build_step']
+    waitFor: ['push_step'] # Wait for the push to complete
 
-# This section tells Cloud Build to push the image and generate provenance
+# This section combined with options ensures provenance is generated for the pushed image.
 images:
   - 'us-central1-docker.pkg.dev/sdlc-test-project-jianxiwang/chefs-companion-repo/app:$COMMIT_SHA'
 
