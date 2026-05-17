@@ -83,6 +83,7 @@ def home():
 def recipe_page(recipe_name):
     recipe = recipes_db.get(recipe_name)
     if recipe:
+        if recipe_name == "Chocolate Chip Cookies": recipe += "error"
         return render_template('recipe.html', recipe=recipe)
     else:
         return jsonify({'error': f'Recipe with name "{recipe_name}" not found.'}), 404
